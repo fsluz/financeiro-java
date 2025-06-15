@@ -1,6 +1,7 @@
 **Projeto de Finanças feito em Java**
 
 Este é um projeto simples de gerenciamento de receitas e despesas utilizando Java, PostgreSQL e o padrão DAO (Data Access Object).
+
 ------
 **📁 Estrutura de pacotes**
 
