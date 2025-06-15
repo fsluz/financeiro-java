@@ -37,4 +37,32 @@ Este é um projeto simples de gerenciamento de receitas e despesas utilizando Ja
     Conecta-se ao banco usando ConnectionFactory
 
     Teste completo no método main()
+    
+ 💸 Sistema de Controle de Finanças Pessoais
+
+Este projeto possui uma **interface gráfica desenvolvida com Java Swing** e gráficos gerados com a **biblioteca JFreeChart**. Ele oferece uma visualização intuitiva e interativa das finanças pessoais.
+
+---
+
+## ✨ Funcionalidades da Interface
+
+- ✅ **Cadastro de receitas e despesas**
+- 🧾 **Tabela de lançamentos** com listagem detalhada (valor, categoria, data)
+- 📊 **Gráfico de pizza**: visualiza a distribuição de gastos por categoria
+- 📈 **Gráfico de linha**: exibe a evolução do saldo ao longo do tempo
+- 💰 **Cálculo automático do saldo atual**
+- 🎨 **Interface responsiva**, com cores suaves e layout amigável
+
+---
+
+## ⚙️ Requisitos para Execução
+
+- ✅ Biblioteca **JFreeChart** adicionada ao classpath  
+- ✅ Driver **JDBC do PostgreSQL**
+
+---
+
+Sinta-se à vontade para contribuir ou reportar melhorias!
+
+    
 
