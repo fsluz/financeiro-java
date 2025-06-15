@@ -2,7 +2,7 @@
 
 Este é um projeto simples de gerenciamento de receitas e despesas utilizando Java, PostgreSQL e o padrão DAO (Data Access Object).
 ------
-***📁 Estrutura de pacotes***
+**📁 Estrutura de pacotes**
 
     model — Classes de modelo (Receita, Despesa, Categoria)
 
