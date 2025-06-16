@@ -1,3 +1,5 @@
+package app;
+
 // O nome deste arquivo deve ser Interface.java
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
@@ -18,6 +20,15 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import dao.DespesaDAO;
+import dao.ReceitaDAO;
+import dao.CategoriaDAO;
+import db.ConnectionFactory;
+import model.Despesa;
+import model.Receita;
+import model.Categoria;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 /**
  * Classe principal da aplicação que cria a interface gráfica de usuário (GUI)
@@ -57,6 +68,12 @@ public class Interface extends JFrame {
     private ChartPanel painelGraficoPizza;
     private ChartPanel painelGraficoLinha;
 
+    // Adicionar os DAOs como atributos da classe
+    private DespesaDAO despesaDAO;
+    private ReceitaDAO receitaDAO;
+    private CategoriaDAO categoriaDAO;
+    private Connection conn;
+
     /**
      * Construtor da classe Interface.
      * Configura a janela principal e inicializa os componentes.
@@ -71,7 +88,23 @@ public class Interface extends JFrame {
         // Define a cor de fundo principal da janela
         this.getContentPane().setBackground(FUNDO_PRINCIPAL);
 
+        // Inicializa os componentes antes de tentar usar
         criarComponentes();
+
+        try {
+            // Inicializa a conexão e os DAOs usando o ConnectionFactory
+            conn = ConnectionFactory.getConnection();
+            despesaDAO = new DespesaDAO(conn);
+            receitaDAO = new ReceitaDAO(conn);
+            categoriaDAO = new CategoriaDAO(conn);
+            
+            // Carrega os dados iniciais
+            carregarDados();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao conectar ao banco de dados: " + e.getMessage());
+            System.exit(1);
+        }
+
         setVisible(true);
     }
 
@@ -82,6 +115,11 @@ public class Interface extends JFrame {
         JPanel painel = new JPanel(new BorderLayout(10, 10));
         painel.setBackground(FUNDO_PRINCIPAL);
         painel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // Inicializa o modelo da tabela antes de usá-lo
+        String[] colunas = {"Data", "Descrição", "Tipo", "Categoria", "Valor (R$)"};
+        tabelaModelo = new DefaultTableModel(colunas, 0);
+        tabelaLancamentos = new JTable(tabelaModelo);
 
         // Painel para a entrada de novos lançamentos (receitas/despesas)
         JPanel painelEntrada = new JPanel(new GridLayout(2, 7, 10, 8));
@@ -135,11 +173,6 @@ public class Interface extends JFrame {
         painelEntrada.add(campoValor);
         painelEntrada.add(botaoAdicionar);
         painelEntrada.add(botaoRemover);
-        
-        // Tabela que exibe os lançamentos
-        String[] colunas = {"Data", "Descrição", "Tipo", "Categoria", "Valor (R$)"};
-        tabelaModelo = new DefaultTableModel(colunas, 0);
-        tabelaLancamentos = new JTable(tabelaModelo);
         
         // Estiliza a tabela com o novo tema
         tabelaLancamentos.setBackground(Color.WHITE);
@@ -252,10 +285,149 @@ public class Interface extends JFrame {
     // --- MÉTODOS DE LÓGICA (Nenhuma alteração aqui) ---
 
     private void atualizarCategorias() { comboCategoria.removeAllItems(); if ("Receita".equals(comboTipo.getSelectedItem())) { for (String cat : categoriasReceita) { comboCategoria.addItem(cat); } } else { for (String cat : categoriasDespesa) { comboCategoria.addItem(cat); } } }
-    private void adicionarLancamento() { String descricao = campoDescricao.getText(); String categoria = (String) comboCategoria.getSelectedItem(); String valorTexto = campoValor.getText(); String tipo = (String) comboTipo.getSelectedItem(); String data = campoData.getText(); if (descricao.isEmpty() || valorTexto.isEmpty() || categoria == null || data.isEmpty()) { JOptionPane.showMessageDialog(this, "Preencha todos os campos."); return; } try { LocalDate.parse(data, DateTimeFormatter.ofPattern("dd/MM/yyyy")); } catch (Exception e) { JOptionPane.showMessageDialog(this, "Data inválida. Use o formato dd/MM/yyyy."); return; } try { double valor = Double.parseDouble(valorTexto.replace(",", ".")); if (valor <= 0) { JOptionPane.showMessageDialog(this, "O valor deve ser maior que zero."); return; } tabelaModelo.addRow(new Object[]{data, descricao, tipo, categoria, String.format("%.2f", valor)}); if ("Receita".equals(tipo)) { saldo += valor; } else { saldo -= valor; } categoriasTotais.put(categoria, categoriasTotais.getOrDefault(categoria, 0.0) + valor); saldoPorData.clear(); double saldoTemp = 0; for (int i = 0; i < tabelaModelo.getRowCount(); i++) { String d = (String) tabelaModelo.getValueAt(i, 0); String t = (String) tabelaModelo.getValueAt(i, 2); double v = Double.parseDouble(((String) tabelaModelo.getValueAt(i, 4)).replace(",", ".")); if ("Receita".equals(t)) saldoTemp += v; else saldoTemp -= v; saldoPorData.put(d, saldoTemp); } atualizarSaldo(); atualizarGraficos(); campoDescricao.setText(""); campoValor.setText(""); } catch (NumberFormatException ex) { JOptionPane.showMessageDialog(this, "Informe um valor válido."); } }
-    private void removerLancamento() { int linhaSelecionada = tabelaLancamentos.getSelectedRow(); if (linhaSelecionada != -1) { String tipo = (String) tabelaModelo.getValueAt(linhaSelecionada, 2); String categoria = (String) tabelaModelo.getValueAt(linhaSelecionada, 3); String data = (String) tabelaModelo.getValueAt(linhaSelecionada, 0); double valor = Double.parseDouble(((String) tabelaModelo.getValueAt(linhaSelecionada, 4)).replace(",", ".")); if ("Receita".equals(tipo)) { saldo -= valor; } else { saldo += valor; } categoriasTotais.put(categoria, categoriasTotais.getOrDefault(categoria, 0.0) - valor); if (categoriasTotais.getOrDefault(categoria, 0.0) <= 0) { categoriasTotais.remove(categoria); } tabelaModelo.removeRow(linhaSelecionada); saldoPorData.clear(); double saldoTemp = 0; for (int i = 0; i < tabelaModelo.getRowCount(); i++) { double v = Double.parseDouble(((String) tabelaModelo.getValueAt(i, 4)).replace(",", ".")); String t = (String) tabelaModelo.getValueAt(i, 2); String d = (String) tabelaModelo.getValueAt(i, 0); if ("Receita".equals(t)) saldoTemp += v; else saldoTemp -= v; saldoPorData.put(d, saldoTemp); } atualizarSaldo(); atualizarGraficos(); } else { JOptionPane.showMessageDialog(this, "Selecione um lançamento para remover."); } }
+    private void adicionarLancamento() {
+        String descricao = campoDescricao.getText();
+        String categoria = (String) comboCategoria.getSelectedItem();
+        String valorTexto = campoValor.getText();
+        String tipo = (String) comboTipo.getSelectedItem();
+        String data = campoData.getText();
+
+        if (descricao.isEmpty() || valorTexto.isEmpty() || categoria == null || data.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Preencha todos os campos.");
+            return;
+        }
+
+        try {
+            LocalDate.parse(data, DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Data inválida. Use o formato dd/MM/yyyy.");
+            return;
+        }
+
+        try {
+            double valor = Double.parseDouble(valorTexto.replace(",", "."));
+            if (valor <= 0) {
+                JOptionPane.showMessageDialog(this, "O valor deve ser maior que zero.");
+                return;
+            }
+
+            // Busca ou cria a categoria
+            Categoria cat = categoriaDAO.buscarPorNome(categoria);
+            if (cat == null) {
+                cat = new Categoria(0, categoria);
+                categoriaDAO.inserir(cat);
+                cat = categoriaDAO.buscarPorNome(categoria);
+            }
+
+            if ("Receita".equals(tipo)) {
+                Receita receita = new Receita(0, descricao, valor, data, cat.getId());
+                receitaDAO.inserir(receita);
+            } else {
+                Despesa despesa = new Despesa(0, descricao, valor, data, cat.getId());
+                despesaDAO.inserir(despesa);
+            }
+
+            // Atualiza a interface
+            carregarDados();
+            campoDescricao.setText("");
+            campoValor.setText("");
+            
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao salvar no banco de dados: " + ex.getMessage());
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Informe um valor válido.");
+        }
+    }
+    private void removerLancamento() {
+        int linhaSelecionada = tabelaLancamentos.getSelectedRow();
+        if (linhaSelecionada != -1) {
+            try {
+                String tipo = (String) tabelaModelo.getValueAt(linhaSelecionada, 2);
+                String descricao = (String) tabelaModelo.getValueAt(linhaSelecionada, 1);
+                String data = (String) tabelaModelo.getValueAt(linhaSelecionada, 0);
+
+                if ("Receita".equals(tipo)) {
+                    Receita receita = receitaDAO.buscarPorDescricaoEData(descricao, data);
+                    if (receita != null) {
+                        receitaDAO.excluir(receita.getId());
+                    }
+                } else {
+                    Despesa despesa = despesaDAO.buscarPorDescricaoEData(descricao, data);
+                    if (despesa != null) {
+                        despesaDAO.excluir(despesa.getId());
+                    }
+                }
+
+                // Atualiza a interface
+                carregarDados();
+                
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this, "Erro ao remover do banco de dados: " + ex.getMessage());
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Selecione um lançamento para remover.");
+        }
+    }
     private void atualizarSaldo() { labelSaldo.setText(String.format("Saldo Atual: R$ %.2f", saldo)); }
     private void atualizarGraficos() { painelGraficoPizza.setChart(criarGraficoPizza()); painelGraficoLinha.setChart(criarGraficoLinha()); }
+
+    private void carregarDados() throws SQLException {
+        // Limpa a tabela
+        tabelaModelo.setRowCount(0);
+        saldo = 0.0;
+        categoriasTotais.clear();
+        saldoPorData.clear();
+        
+        // Carrega as despesas
+        for (Despesa d : despesaDAO.listar()) {
+            Categoria cat = categoriaDAO.buscarPorId(d.getCategoriaId());
+            String nomeCategoria = cat != null ? cat.getNome() : "Sem categoria";
+            
+            tabelaModelo.addRow(new Object[]{
+                d.getData(),
+                d.getDescricao(),
+                "Despesa",
+                nomeCategoria,
+                String.format("%.2f", d.getValor())
+            });
+            
+            saldo -= d.getValor();
+            categoriasTotais.put(nomeCategoria, 
+                categoriasTotais.getOrDefault(nomeCategoria, 0.0) + d.getValor());
+        }
+        
+        // Carrega as receitas
+        for (Receita r : receitaDAO.listar()) {
+            Categoria cat = categoriaDAO.buscarPorId(r.getCategoriaId());
+            String nomeCategoria = cat != null ? cat.getNome() : "Sem categoria";
+            
+            tabelaModelo.addRow(new Object[]{
+                r.getData(),
+                r.getDescricao(),
+                "Receita",
+                nomeCategoria,
+                String.format("%.2f", r.getValor())
+            });
+            
+            saldo += r.getValor();
+            categoriasTotais.put(nomeCategoria, 
+                categoriasTotais.getOrDefault(nomeCategoria, 0.0) + r.getValor());
+        }
+        
+        // Atualiza o saldo por data
+        double saldoTemp = 0;
+        for (int i = 0; i < tabelaModelo.getRowCount(); i++) {
+            String d = (String) tabelaModelo.getValueAt(i, 0);
+            String t = (String) tabelaModelo.getValueAt(i, 2);
+            double v = Double.parseDouble(((String) tabelaModelo.getValueAt(i, 4)).replace(",", "."));
+            if ("Receita".equals(t)) saldoTemp += v;
+            else saldoTemp -= v;
+            saldoPorData.put(d, saldoTemp);
+        }
+        
+        atualizarSaldo();
+        atualizarGraficos();
+    }
 
     /**
      * Método principal que inicia a aplicação.
@@ -263,6 +435,16 @@ public class Interface extends JFrame {
      * @param args Argumentos de linha de comando (não utilizados).
      */
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(Interface::new);
+        try {
+            // Configura o look and feel do sistema operacional
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        // Executa a interface na thread de eventos do Swing
+        SwingUtilities.invokeLater(() -> {
+            new Interface();
+        });
     }
 }

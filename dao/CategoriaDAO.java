@@ -48,4 +48,28 @@ public class CategoriaDAO {
             stmt.executeUpdate();
         }
     }
+
+    public Categoria buscarPorId(int id) throws SQLException {
+        String sql = "SELECT * FROM categoria WHERE id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return new Categoria(rs.getInt("id"), rs.getString("nome"));
+            }
+        }
+        return null;
+    }
+
+    public Categoria buscarPorNome(String nome) throws SQLException {
+        String sql = "SELECT * FROM categoria WHERE nome = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, nome);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return new Categoria(rs.getInt("id"), rs.getString("nome"));
+            }
+        }
+        return null;
+    }
 }

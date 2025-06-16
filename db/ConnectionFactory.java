@@ -7,7 +7,7 @@ import java.sql.SQLException;
 public class ConnectionFactory {
     private static final String URL = "jdbc:postgresql://localhost:5432/financas_db";
     private static final String USER = "postgres";
-    private static final String PASSWORD = "sua senha aqui"; // coloque sua senha real aqui
+    private static final String PASSWORD = "coxinha"; // coloque sua senha real aqui
 
     public static Connection getConnection() {
         try {
